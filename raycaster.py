@@ -96,7 +96,6 @@ class Raycaster(sdl2.ext.Renderer):
             color
         )
 
-
     def trace_ray_on_world(self, ray_pos, ray_angle):
         hit_x = False
         hit_y = False
@@ -122,7 +121,6 @@ class Raycaster(sdl2.ext.Renderer):
         # y = m(x - x1) + y1
         # 
         # x = ((y - y1) / m) + x1
-
         # y = m(x - x1) + y1
         #                       v-- note: this is reversed due to our different coordinate system
         #                                   i.e top left is 0,0 rather than bottom left
@@ -229,8 +227,6 @@ class Raycaster(sdl2.ext.Renderer):
             x = x + 1
             ray_angle = ray_angle + ray_angle_increment
 
-
-
     def draw(self):
         super().clear()
         # keep in 360 range
@@ -257,7 +253,6 @@ class Raycaster(sdl2.ext.Renderer):
 
         super().present()
         
-
     def run(self) -> int:
         self.running = True
 
@@ -267,11 +262,7 @@ class Raycaster(sdl2.ext.Renderer):
             self.draw()
         
         sdl2.ext.quit()
-
         return 0 
-
-            
-
 
 if __name__ == "__main__":
     raycaster = Raycaster()
