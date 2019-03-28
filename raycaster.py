@@ -4,6 +4,7 @@ import sdl2.ext
 import random
 import sys
 import math
+import time
         
 class Raycaster(sdl2.ext.Renderer):
     def __init__(self):
@@ -12,8 +13,11 @@ class Raycaster(sdl2.ext.Renderer):
         self.camera_angle       = math.radians(30)
         self.camera_pos         = (2.5,2.5)
 
-        self.proj_plane_size    = (360,262)
+        self.proj_plane_size    = (768,512)
         self.proj_plane_dist    = self.proj_plane_size[0]/math.tan(self.camera_fov/2)
+
+        # delta frametime
+        self.delta              = 0
 
         super().__init__(
             sdl2.ext.Window(
@@ -96,19 +100,20 @@ class Raycaster(sdl2.ext.Renderer):
     def trace_ray_on_world(self, ray_pos, ray_angle):
         hit_x = False
         hit_y = False
-        distance1 = 99999
-        distance2 =99999
+        distance_hit_x = 99999
+        distance_hit_y =99999
 
         # find the grid position that ray_pos is on
-        ray_grid_pos = tuple(map(math.floor,ray_pos))
+        ray_grid_pos = list(map(math.floor,ray_pos))
 
-        ray_slope = math.tan(ray_angle) or 0.001
+        ray_slope = math.tan(ray_angle)
 
-        facing_north = ray_angle < math.radians(180) and ray_angle > math.radians(0)
+        # 180 to 0
+        facing_north = ray_angle < math.pi and ray_angle > 0
         facing_south = not facing_north
 
         # we face east if we're our angle is 90 > a > 270 (assuming wrap around)
-        facing_east = (ray_angle < math.radians(90) and ray_angle > math.radians(0)) or (ray_angle < math.radians(359) and ray_angle > math.radians(270) ) 
+        facing_east = (ray_angle < (math.pi/2) and ray_angle > 0) or (ray_angle < (math.pi*2) and ray_angle > (math.pi*1.5) ) 
         facing_west = not facing_east
 
         # find an equation of a line for the ray
@@ -143,8 +148,8 @@ class Raycaster(sdl2.ext.Renderer):
             y = ray_grid_pos[1] + i + 1 if facing_south else ray_grid_pos[1] - i
 
             #print(facing_north, facing_east)
-            horiz_intersection = (ray_x(y), y)
-            vert_intersection  = (x, ray_y(x))
+            horiz_intersection = [ray_x(y), y]
+            vert_intersection  = [x, ray_y(x)]
 
             # #draw intersections on minimap
             # if abs(self.camera_angle - ray_angle) < 0.05:
@@ -159,10 +164,10 @@ class Raycaster(sdl2.ext.Renderer):
             #     )
 
             # what grid location do we pick, i.e 
-            # we can have grid intersections on certain boundaries
-            # but 
-            horiz_grid = tuple(map(math.floor, (horiz_intersection[0], horiz_intersection[1] - 1 if facing_north else horiz_intersection[1])))
-            vert_grid = tuple(map(math.floor, (vert_intersection[0] - 1 if facing_west else vert_intersection[0], vert_intersection[1])))
+            # we can have grid intersections on any boundary
+            # but we need to decide which actual world element to choose
+            horiz_grid = list(map(math.floor, [horiz_intersection[0], horiz_intersection[1] - 1 if facing_north else horiz_intersection[1]]))
+            vert_grid = list(map(math.floor, [vert_intersection[0] - 1 if facing_west else vert_intersection[0], vert_intersection[1]]))
 
             if self.test_world(horiz_grid) and not hit_x:
                 # if abs(self.camera_angle - ray_angle) < 0.05:   
@@ -171,12 +176,12 @@ class Raycaster(sdl2.ext.Renderer):
                 #         sdl2.ext.Color(255,64,255,12)
                 #     )
                 hit_x = True
-                distance1 = min(distance1,Raycaster.distance(self.camera_pos, horiz_intersection))
-                if abs(self.camera_angle - ray_angle) < 0.05:
-                    super().fill(
-                        Raycaster.world_to_minimap_point(horiz_intersection) + (3,3), 
-                        sdl2.ext.Color(0,255,0)
-                    )
+                distance_hit_x = Raycaster.distance(self.camera_pos, horiz_intersection)
+                # if abs(self.camera_angle - ray_angle) < 0.05:
+                #     super().fill(
+                #         Raycaster.world_to_minimap_point(horiz_intersection) + (3,3), 
+                #         sdl2.ext.Color(0,255,0)
+                #     )
 
             if self.test_world(vert_grid) and not hit_y:
                 # if abs(self.camera_angle - ray_angle) < 0.05:   
@@ -185,7 +190,7 @@ class Raycaster(sdl2.ext.Renderer):
                 #         sdl2.ext.Color(255,64,255,64)
                 #     )
                 hit_y = True
-                distance2 = min(distance2,Raycaster.distance(self.camera_pos, vert_intersection))
+                distance_hit_y = Raycaster.distance(self.camera_pos, vert_intersection)
                 # if abs(self.camera_angle - ray_angle) < 0.05:
                 #     super().fill(
                 #         Raycaster.world_to_minimap_point(vert_intersection) + (3,3), 
@@ -194,11 +199,11 @@ class Raycaster(sdl2.ext.Renderer):
 
             if hit_x and hit_y:
                 # return distance and correct fish eye lens
-                return True, min(distance1, distance2) * math.cos(self.camera_fov/2)
+                return True, min(distance_hit_x, distance_hit_y) * math.cos(self.camera_fov/2)
 
             i = i + 1
 
-        return (hit_x or hit_y), min(distance1,distance2) * math.cos(self.camera_fov/2)
+        return (hit_x or hit_y), min(distance_hit_x,distance_hit_y) * math.cos(self.camera_fov/2)
             
     def draw_world(self):
         # start at furthest end of fov
@@ -207,11 +212,12 @@ class Raycaster(sdl2.ext.Renderer):
         # increment equal angles for each pixel on screen
         ray_angle_increment = self.camera_fov / self.proj_plane_size[0]
 
-        ray_angle = ray_angle % math.radians(359)
-        
         x = 0
-        blit_skip = 0
-        while(ray_angle < (self.camera_angle + (self.camera_fov/2))):
+
+        while(x < self.proj_plane_size[0]):
+            # prevent angle overflow
+            ray_angle = ray_angle % (math.pi*2)
+
             if(x%3 == 0):
                 hit, distance = self.trace_ray_on_world(self.camera_pos, ray_angle)
 
@@ -228,7 +234,7 @@ class Raycaster(sdl2.ext.Renderer):
     def draw(self):
         super().clear()
         # keep in 360 range
-        self.camera_angle = self.camera_angle % math.radians(360)
+        self.camera_angle = self.camera_angle % (math.pi*2)
 
         # draw mini map
         # for y, x_list in enumerate(self.world):
@@ -248,7 +254,7 @@ class Raycaster(sdl2.ext.Renderer):
 
         self.draw_ray_on_minimap(self.camera_pos, self.camera_angle, 128, sdl2.ext.Color(255,215,0))
         self.draw_world()
-        
+
         super().present()
         
 
