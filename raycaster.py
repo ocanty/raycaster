@@ -16,18 +16,24 @@ class Raycaster(sdl2.ext.Renderer):
         self.proj_plane_size    = (768,512)
         self.proj_plane_dist    = self.proj_plane_size[0]/math.tan(self.camera_fov/2)
 
-        # delta frametime
-        self.delta              = 0
-
-        super().__init__(
-            sdl2.ext.Window(
+        
+        self.window = sdl2.ext.Window(
             title   = "Raycaster",
             size    = self.proj_plane_size,
             flags   = sdl2.SDL_WINDOW_SHOWN
-        ))
+        )
 
+        super().__init__(self.window)
+
+        self.factory            = sdl2.ext.SpriteFactory(sdl2.ext.SOFTWARE, renderer=self)
+        self.sprite_renderer    = self.factory.create_sprite_render_system(self.window)
+        self.render_sprite      = self.factory.create_software_sprite((self.proj_plane_size))
+        self.render_buffer      = sdl2.ext.pixels2d(self.render_sprite)
+
+        self.render_buffer[202] = 7777777
         self.running = False
 
+        # build a randomized world
         self.world = [
             sorted([False,False,False,False,False,False,True]*2,key= lambda r : random.randint(0,23)) for x in range(14)
         ]
@@ -48,20 +54,23 @@ class Raycaster(sdl2.ext.Renderer):
                 self.keys[event.key.keysym.sym] = False
                 continue
 
+    def is_key_down(self, key):
+        return key in self.keys and self.keys[key]
+
     def handle_input(self):
-        if sdl2.SDLK_RIGHT in self.keys and self.keys[sdl2.SDLK_RIGHT]:
+        if self.is_key_down(sdl2.SDLK_RIGHT):
             self.camera_angle = self.camera_angle + 0.04
 
-        if sdl2.SDLK_LEFT in self.keys and self.keys[sdl2.SDLK_LEFT]:
+        if self.is_key_down(sdl2.SDLK_LEFT):
             self.camera_angle = self.camera_angle - 0.04
 
-        if sdl2.SDLK_UP in self.keys and self.keys[sdl2.SDLK_UP]:
+        if self.is_key_down(sdl2.SDLK_UP):
             self.camera_pos = (
                 self.camera_pos[0] + 0.1*math.cos(self.camera_angle),
                 self.camera_pos[1] - 0.1*math.sin(self.camera_angle)
             )
 
-        if sdl2.SDLK_DOWN in self.keys and self.keys[sdl2.SDLK_DOWN]:
+        if self.is_key_down(sdl2.SDLK_DOWN):
             self.camera_pos = (
                 self.camera_pos[0] - 0.1*math.cos(self.camera_angle),
                 self.camera_pos[1] + 0.1*math.sin(self.camera_angle)
@@ -76,7 +85,7 @@ class Raycaster(sdl2.ext.Renderer):
 
         return False
 
-    # Convert a world point to a screen point
+    # Convert a world point to a minimap point
     @staticmethod
     def world_to_minimap_point(point):
         return (int(point[0]*30 + 10), int(point[1]*30 + 10))
@@ -100,7 +109,7 @@ class Raycaster(sdl2.ext.Renderer):
         hit_x = False
         hit_y = False
         distance_hit_x = 99999
-        distance_hit_y =99999
+        distance_hit_y = 99999
 
         # find the grid position that ray_pos is on
         ray_grid_pos = list(map(math.floor,ray_pos))
@@ -162,8 +171,9 @@ class Raycaster(sdl2.ext.Renderer):
             #     )
 
             # what grid location do we pick, i.e 
-            # we can have grid intersections on any boundary
+            # we can have grid intersections on a grid line
             # but we need to decide which actual world element to choose
+            # i.e NSEW of that boundary
             horiz_grid = list(map(math.floor, [horiz_intersection[0], horiz_intersection[1] - 1 if facing_north else horiz_intersection[1]]))
             vert_grid = list(map(math.floor, [vert_intersection[0] - 1 if facing_west else vert_intersection[0], vert_intersection[1]]))
 
@@ -210,9 +220,8 @@ class Raycaster(sdl2.ext.Renderer):
         # increment equal angles for each pixel on screen
         ray_angle_increment = self.camera_fov / self.proj_plane_size[0]
 
-        x = 0
-
-        while(x < self.proj_plane_size[0]):
+        # each vertical line on screen
+        for x in range(self.proj_plane_size[0]):
             # prevent angle overflow
             ray_angle = ray_angle % (math.pi*2)
 
@@ -223,10 +232,11 @@ class Raycaster(sdl2.ext.Renderer):
                     height = int(((1/distance)*self.proj_plane_dist)*0.5)
                     #print(distance)
                     super().fill((x-2, int((self.proj_plane_size[1]/2)-(height/2)), 3, height), color=sdl2.ext.Color(min(int((distance/6)*255),255),119,131))
-                
-            x = x + 1
+
             ray_angle = ray_angle + ray_angle_increment
 
+
+        self.sprite_renderer.render(self.render_sprite, x=0, y=0)
     def draw(self):
         super().clear()
         # keep in 360 range
