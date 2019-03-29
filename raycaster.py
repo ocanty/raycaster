@@ -31,6 +31,7 @@ class Raycaster(sdl2.ext.Renderer):
         self.render_buffer      = sdl2.ext.pixels2d(self.render_sprite)
 
         self.render_buffer[202] = 7777777
+        
         self.running = False
 
         # build a randomized world
@@ -158,17 +159,7 @@ class Raycaster(sdl2.ext.Renderer):
             horiz_intersection = [ray_x(y), y]
             vert_intersection  = [x, ray_y(x)]
 
-            # #draw intersections on minimap
-            # if abs(self.camera_angle - ray_angle) < 0.05:
-            #     super().fill(
-            #         Raycaster.world_to_minimap_point(horiz_intersection) + (3,3), 
-            #         sdl2.ext.Color(127,64,255)
-            #     )
 
-            #     super().fill(
-            #         Raycaster.world_to_minimap_point(vert_intersection) + (3,3), 
-            #         sdl2.ext.Color(255,0,127)
-            #     )
 
             # what grid location do we pick, i.e 
             # we can have grid intersections on a grid line
@@ -178,32 +169,13 @@ class Raycaster(sdl2.ext.Renderer):
             vert_grid = list(map(math.floor, [vert_intersection[0] - 1 if facing_west else vert_intersection[0], vert_intersection[1]]))
 
             if self.test_world(horiz_grid) and not hit_x:
-                # if abs(self.camera_angle - ray_angle) < 0.05:   
-                #     super().fill(
-                #         Raycaster.world_to_minimap_point(horiz_grid) + (30,30), 
-                #         sdl2.ext.Color(255,64,255,12)
-                #     )
                 hit_x = True
                 distance_hit_x = Raycaster.distance(self.camera_pos, horiz_intersection)
-                # if abs(self.camera_angle - ray_angle) < 0.05:
-                #     super().fill(
-                #         Raycaster.world_to_minimap_point(horiz_intersection) + (3,3), 
-                #         sdl2.ext.Color(0,255,0)
-                #     )
+
 
             if self.test_world(vert_grid) and not hit_y:
-                # if abs(self.camera_angle - ray_angle) < 0.05:   
-                #     super().fill(
-                #         Raycaster.world_to_minimap_point(vert_grid) + (30,30), 
-                #         sdl2.ext.Color(255,64,255,64)
-                #     )
                 hit_y = True
                 distance_hit_y = Raycaster.distance(self.camera_pos, vert_intersection)
-                # if abs(self.camera_angle - ray_angle) < 0.05:
-                #     super().fill(
-                #         Raycaster.world_to_minimap_point(vert_intersection) + (3,3), 
-                #         sdl2.ext.Color(127,127,127)
-                #     )
 
             if hit_x and hit_y:
                 # return distance and correct fish eye lens
